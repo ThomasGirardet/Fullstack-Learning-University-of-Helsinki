@@ -1,51 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import personService from "./services/persons";
 
-// 1️⃣ Filter component
-const Filter = ({ filter, handleFilterChange }) => (
-  <div>
-    filter shown with: <input value={filter} onChange={handleFilterChange} />
-  </div>
-);
+import Filter from "./components/Filter.jsx";
+import PersonForm from "./components/PersonForm.jsx";
+import Persons from "./components/Persons.jsx";
+import Notification from "./components/Notification.jsx";
 
-// 2️⃣ PersonForm component
-const PersonForm = ({
-  addPerson,
-  newName,
-  handleNameChange,
-  newNumber,
-  handleNumberChange,
-}) => (
-  <form onSubmit={addPerson}>
-    <div>
-      name: <input value={newName} onChange={handleNameChange} />
-    </div>
-    <div>
-      number: <input value={newNumber} onChange={handleNumberChange} />
-    </div>
-    <div>
-      <button type="submit">add</button>
-    </div>
-  </form>
-);
-
-// 3️⃣ Persons component
-const Persons = ({ persons, filter }) => {
-  const filteredPersons = persons.filter((person) =>
-    person.name.toLowerCase().includes(filter.toLowerCase())
-  );
-
-  return (
-    <div>
-      {filteredPersons.map((person) => (
-        <div key={person.name}>
-          {person.name} {person.number}
-        </div>
-      ))}
-    </div>
-  );
-};
-
-// App component (root)
 const App = () => {
   const [persons, setPersons] = useState([
     { name: "Arto Hellas", number: "713-519-2015" },
@@ -53,8 +13,16 @@ const App = () => {
   const [newName, setNewName] = useState("");
   const [newNumber, setNewNumber] = useState("");
   const [filter, setFilter] = useState("");
+  const [message, setMessage] = useState({ content: "", messageType: "" });
 
-  // Add person handler
+  // Load initial data
+  useEffect(() => {
+    personService.getAll().then((initialPersons) => {
+      setPersons(initialPersons);
+    });
+  }, []);
+
+  // Add a person to the database
   const addPerson = (event) => {
     event.preventDefault();
     if (!newName || !newNumber) return alert("Enter a valid name and number");
@@ -65,14 +33,48 @@ const App = () => {
     if (nameExists) return alert(`${newName} is already added to phonebook`);
 
     const newPerson = { name: newName, number: newNumber };
-    setPersons(persons.concat(newPerson));
+
+    personService
+      .create(newPerson)
+      .then((returnedPerson) => {
+        setPersons(persons.concat(returnedPerson));
+      })
+      .then(() => {
+        setMessage({
+          content: `Added ${newPerson.name}`,
+          messageType: "addedPersonSuccess",
+        });
+        setTimeout(() => {
+          setMessage({ content: "", messageType: "" });
+        }, 5000);
+      });
     setNewName("");
     setNewNumber("");
+  };
+
+  // Removing a person from the database
+  const handleDelete = (id, name) => {
+    // Confirmation Pop-up
+    if (!window.confirm(`Delete ${name}?`)) return;
+
+    personService
+      .remove(id)
+      .then(() => {
+        setPersons(persons.filter((p) => p.id !== id));
+      })
+      .catch(() => {
+        alert(`The person ${name} was already removed from the server`);
+        setPersons(persons.filter((p) => p.id !== id)); // Remove stale client copy
+      });
   };
 
   return (
     <div>
       <h2>Phonebook</h2>
+      <Notification
+        message={message.content}
+        messageType={message.messageType}
+      />
       <Filter
         filter={filter}
         handleFilterChange={(e) => setFilter(e.target.value)}
@@ -88,7 +90,7 @@ const App = () => {
       />
 
       <h3>Numbers</h3>
-      <Persons persons={persons} filter={filter} />
+      <Persons persons={persons} filter={filter} handleDelete={handleDelete} />
     </div>
   );
 };
