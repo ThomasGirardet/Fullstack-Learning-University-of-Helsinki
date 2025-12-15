@@ -1,6 +1,7 @@
 const express = require("express");
 const app = express();
 const morgan = require("morgan");
+const cors = require("cors");
 
 let persons = [
   {
@@ -27,6 +28,7 @@ let persons = [
 
 app.use(express.json());
 app.use(morgan("tiny"));
+app.use(cors());
 
 app.get("/api/persons", (request, response) => {
   response.json(persons);
@@ -74,7 +76,7 @@ app.post("/api/persons", (request, response) => {
       error: "Name or number missing",
     });
 
-  if (persons.map((p) => p.name === body.name))
+  if (persons.some((p) => p.name === body.name))
     return response.status(400).json({
       error: "Name must be unique",
     });
